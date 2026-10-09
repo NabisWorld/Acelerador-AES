@@ -1,4 +1,10 @@
 # Relatório — Semana 1
+Como resultado das metas da semana, temos:
+- organização da estrutura de diretórios do repositório;
+- estudo do algoritmo AES e do protocolo SPI
+- criação de um exemplo RTL mínimo utilizando uma porta AND
+- criação de um testbench para validação do exemplo mínimo;
+- desenvolvimento do Makefile (tirado do exemplo feito pelo professor)
 
 ## 1. Advanced Encryption Standard — AES
 

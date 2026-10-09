@@ -1,25 +1,29 @@
 .vscode/
-
 .DS_Store
 desktop.ini
 
-.vcd
-AN.DB/
+*.vcd
+*.fsdb
 
-libs/
-work/
+AN.DB/
+csrc/
+simv
+simv.daidir/
+*.daidir/
+ucli.key
+vc_hdrs.h
+
+novas*
+verdiLog/
+DVEfiles/
+.vlogan*
 
 *.log
+
 *.svf
+alib-52/
+work/
+work.lib++/
 netlist/
 
-alib-52/
-
-verdiLog/
-simv.daidir/
-csrc/
-novas.rc
-novas.conf
-simv
-ucli.key
-work.lib++/
+libs/
