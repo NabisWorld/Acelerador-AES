@@ -8,6 +8,7 @@ desktop.ini
 AN.DB/
 csrc/
 simv
+simv_*
 simv.daidir/
 *.daidir/
 ucli.key
