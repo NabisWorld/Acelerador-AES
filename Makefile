@@ -53,7 +53,7 @@ endif
 # Ferramentas Synopsys
 TIMESCALE := 1ns/1ps
 
-VLOGAN_FLAGS := -full64 -sverilog -kdb +lint=all
+VLOGAN_FLAGS := -full64 -sverilog -kdb +lint=all -timescale=$(TIMESCALE)
 
 VCS_FLAGS := -full64 \
              -timescale=$(TIMESCALE) \
@@ -149,6 +149,53 @@ semana2-codespaces: check-codespaces
 	@echo "========================================"
 	@echo "PASS: SEMANA 2 - TESTES E LINT APROVADOS!"
 	@echo "========================================"
+
+# ==============================================================================
+# SEMANA 3 - TESTES SYNOPSYS
+# ==============================================================================
+
+.PHONY: semana3-synopsys
+
+semana3-synopsys:
+	@echo "==> Verificando ambiente Synopsys..."
+	@command -v vlogan >/dev/null 2>&1 || { echo "ERRO: vlogan nao encontrado"; exit 1; }
+	@command -v vcs >/dev/null 2>&1 || { echo "ERRO: vcs nao encontrado"; exit 1; }
+
+	@echo "==> Analisando modulos da Semana 3..."
+	vlogan $(VLOGAN_FLAGS) $(SBOX) $(SUB) $(SHIFT) \
+		$(AES_DIR)/minisoc_aes_mix_columns.sv \
+		$(AES_DIR)/minisoc_aes_add_round_key.sv \
+		$(AES_DIR)/minisoc_aes_inv_sbox.sv \
+		$(AES_DIR)/minisoc_aes_inv_sub_bytes.sv \
+		$(AES_DIR)/minisoc_aes_inv_shift_rows.sv \
+		$(AES_DIR)/minisoc_aes_inv_mix_columns.sv \
+		$(TB_DIR)/minisoc_aes_mix_columns_tb.sv \
+		$(TB_DIR)/minisoc_aes_add_round_key_tb.sv \
+		$(TB_DIR)/minisoc_aes_inv_sub_bytes_tb.sv \
+		$(TB_DIR)/minisoc_aes_inv_shift_rows_tb.sv \
+		$(TB_DIR)/minisoc_aes_inv_mix_columns_tb.sv
+
+	@echo "==> Testando MixColumns..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_mix_columns_tb -o simv_mix_columns_vcs
+	./simv_mix_columns_vcs
+
+	@echo "==> Testando AddRoundKey..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_add_round_key_tb -o simv_add_round_key_vcs
+	./simv_add_round_key_vcs
+
+	@echo "==> Testando InvSubBytes..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_inv_sub_bytes_tb -o simv_inv_sub_bytes_vcs
+	./simv_inv_sub_bytes_vcs
+
+	@echo "==> Testando InvShiftRows..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_inv_shift_rows_tb -o simv_inv_shift_rows_vcs
+	./simv_inv_shift_rows_vcs
+
+	@echo "==> Testando InvMixColumns..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_inv_mix_columns_tb -o simv_inv_mix_columns_vcs
+	./simv_inv_mix_columns_vcs
+
+	@echo "PASS: Semana 3 - Testes Synopsys concluidos!"
 
 # ==============================================================================
 # LIMPEZA E AJUDA
