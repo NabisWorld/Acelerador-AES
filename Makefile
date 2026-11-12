@@ -4,11 +4,14 @@
 #
 # Semana 1: Porta AND - Synopsys
 # Semana 2: S-box, SubBytes e ShiftRows
+# Semana 3: MixColumns, AddRoundKey e transformacoes inversas
+# Semana 4: Key Expansion e Datapath AES-128
 #
 # Comandos:
 #   make semana1             Semana 1 com Synopsys
-#   make semana2             Semana 2 com Icarus + Verilator
-#   make semana2-synopsys    Semana 2 com Vlogan + VCS
+#   make semana2             Semana 2 com Vlogan + VCS
+#   make semana3-synopsys    Semana 3 com Vlogan + VCS
+#   make semana4-synopsys    Semana 4 com Vlogan + VCS
 #   make WEEK=2 syntax       Analise com Vlogan
 #   make clean               Limpeza dos arquivos gerados
 # ==============================================================================
@@ -105,97 +108,8 @@ endif
 semana1:
 	@$(MAKE) WEEK=1 run
 
-semana2-synopsys:
+semana2:
 	@$(MAKE) WEEK=2 run
-
-# ==============================================================================
-# FLUXO CODESPACES - ICARUS VERILOG E VERILATOR
-# ==============================================================================
-
-check-codespaces:
-	@echo "==> Verificando ferramentas do Codespaces..."
-	@command -v iverilog >/dev/null 2>&1 || { echo "ERRO: iverilog nao encontrado"; exit 1; }
-	@command -v vvp >/dev/null 2>&1 || { echo "ERRO: vvp nao encontrado"; exit 1; }
-	@command -v verilator >/dev/null 2>&1 || { echo "ERRO: verilator nao encontrado"; exit 1; }
-	@set -e; for file in $(SBOX) $(SUB) $(SHIFT) $(TB_SBOX) $(TB_SUB) $(TB_SHIFT) $(SBOX_REF); do \
-		test -f "$$file" || { echo "ERRO: $$file nao encontrado"; exit 1; }; \
-	done
-	@echo "==> Ambiente OK."
-
-semana2: semana2-codespaces
-
-semana2-codespaces: check-codespaces
-	@echo "==> Testando S-box..."
-	iverilog -g2012 -s minisoc_aes_sbox_tb -o simv_sbox $(SBOX) $(TB_SBOX)
-	vvp simv_sbox
-
-	@echo "==> Testando SubBytes..."
-	iverilog -g2012 -s minisoc_aes_sub_bytes_tb -o simv_sub_bytes $(SBOX) $(SUB) $(TB_SUB)
-	vvp simv_sub_bytes
-
-	@echo "==> Testando ShiftRows..."
-	iverilog -g2012 -s minisoc_aes_shift_rows_tb -o simv_shift_rows $(SHIFT) $(TB_SHIFT)
-	vvp simv_shift_rows
-
-	@echo "==> Lint da S-box..."
-	verilator --lint-only -Wall --top-module minisoc_aes_sbox $(SBOX)
-
-	@echo "==> Lint do SubBytes..."
-	verilator --lint-only -Wall --top-module minisoc_aes_sub_bytes $(SBOX) $(SUB)
-
-	@echo "==> Lint do ShiftRows..."
-	verilator --lint-only -Wall --top-module minisoc_aes_shift_rows $(SHIFT)
-
-	@echo "========================================"
-	@echo "PASS: SEMANA 2 - TESTES E LINT APROVADOS!"
-	@echo "========================================"
-
-# ==============================================================================
-# SEMANA 3 - TESTES SYNOPSYS
-# ==============================================================================
-
-.PHONY: semana3-synopsys
-
-semana3-synopsys:
-	@echo "==> Verificando ambiente Synopsys..."
-	@command -v vlogan >/dev/null 2>&1 || { echo "ERRO: vlogan nao encontrado"; exit 1; }
-	@command -v vcs >/dev/null 2>&1 || { echo "ERRO: vcs nao encontrado"; exit 1; }
-
-	@echo "==> Analisando modulos da Semana 3..."
-	vlogan $(VLOGAN_FLAGS) $(SBOX) $(SUB) $(SHIFT) \
-		$(AES_DIR)/minisoc_aes_mix_columns.sv \
-		$(AES_DIR)/minisoc_aes_add_round_key.sv \
-		$(AES_DIR)/minisoc_aes_inv_sbox.sv \
-		$(AES_DIR)/minisoc_aes_inv_sub_bytes.sv \
-		$(AES_DIR)/minisoc_aes_inv_shift_rows.sv \
-		$(AES_DIR)/minisoc_aes_inv_mix_columns.sv \
-		$(TB_DIR)/minisoc_aes_mix_columns_tb.sv \
-		$(TB_DIR)/minisoc_aes_add_round_key_tb.sv \
-		$(TB_DIR)/minisoc_aes_inv_sub_bytes_tb.sv \
-		$(TB_DIR)/minisoc_aes_inv_shift_rows_tb.sv \
-		$(TB_DIR)/minisoc_aes_inv_mix_columns_tb.sv
-
-	@echo "==> Testando MixColumns..."
-	vcs $(VCS_FLAGS) -top minisoc_aes_mix_columns_tb -o simv_mix_columns_vcs
-	./simv_mix_columns_vcs
-
-	@echo "==> Testando AddRoundKey..."
-	vcs $(VCS_FLAGS) -top minisoc_aes_add_round_key_tb -o simv_add_round_key_vcs
-	./simv_add_round_key_vcs
-
-	@echo "==> Testando InvSubBytes..."
-	vcs $(VCS_FLAGS) -top minisoc_aes_inv_sub_bytes_tb -o simv_inv_sub_bytes_vcs
-	./simv_inv_sub_bytes_vcs
-
-	@echo "==> Testando InvShiftRows..."
-	vcs $(VCS_FLAGS) -top minisoc_aes_inv_shift_rows_tb -o simv_inv_shift_rows_vcs
-	./simv_inv_shift_rows_vcs
-
-	@echo "==> Testando InvMixColumns..."
-	vcs $(VCS_FLAGS) -top minisoc_aes_inv_mix_columns_tb -o simv_inv_mix_columns_vcs
-	./simv_inv_mix_columns_vcs
-
-	@echo "PASS: Semana 3 - Testes Synopsys concluidos!"
 
 # ==============================================================================
 # LIMPEZA E AJUDA
@@ -211,11 +125,87 @@ clean:
 help:
 	@echo "MiniSoC AES - Trilha RTL Design"
 	@echo "  make semana1            Semana 1 - Synopsys"
-	@echo "  make semana2            Semana 2 - Codespaces"
-	@echo "  make semana2-synopsys   Semana 2 - Synopsys"
+	@echo "  make semana2            Semana 2 - Synopsys"
+	@echo "  make semana3-synopsys   Semana 3 - Synopsys"
+	@echo "  make semana4-synopsys   Semana 4 - Synopsys"
 	@echo "  make WEEK=2 syntax      Analise com Vlogan"
 	@echo "  make clean              Limpa arquivos temporarios"
 
 .PHONY: all check syntax compile run semana1 \
-        semana2 semana2-codespaces semana2-synopsys \
-        check-codespaces clean help
+        semana2 semana2-synopsys \
+        clean help semana3-synopsys semana4-synopsys
+
+# ==============================================================================
+# SEMANA 3 - REGRESSAO SYNOPSYS (VLOGAN + VCS)
+# ==============================================================================
+
+.PHONY: semana3-synopsys
+semana3-synopsys:
+	@echo "==> Semana 3: verificando ferramentas Synopsys..."
+	@command -v vlogan >/dev/null 2>&1 || { echo "ERRO: vlogan nao encontrado"; exit 1; }
+	@command -v vcs >/dev/null 2>&1 || { echo "ERRO: vcs nao encontrado"; exit 1; }
+	@echo "==> Semana 3: analisando RTL e testbenches com Vlogan..."
+	vlogan $(VLOGAN_FLAGS) $(SBOX) $(SUB) $(SHIFT) \
+		$(AES_DIR)/minisoc_aes_mix_columns.sv \
+		$(AES_DIR)/minisoc_aes_add_round_key.sv \
+		$(AES_DIR)/minisoc_aes_inv_sbox.sv \
+		$(AES_DIR)/minisoc_aes_inv_sub_bytes.sv \
+		$(AES_DIR)/minisoc_aes_inv_shift_rows.sv \
+		$(AES_DIR)/minisoc_aes_inv_mix_columns.sv \
+		$(TB_DIR)/minisoc_aes_mix_columns_tb.sv \
+		$(TB_DIR)/minisoc_aes_add_round_key_tb.sv \
+		$(TB_DIR)/minisoc_aes_inv_sub_bytes_tb.sv \
+		$(TB_DIR)/minisoc_aes_inv_shift_rows_tb.sv \
+		$(TB_DIR)/minisoc_aes_inv_mix_columns_tb.sv
+	@echo "==> Semana 3: MixColumns..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_mix_columns_tb -o simv_mix_columns_vcs
+	./simv_mix_columns_vcs
+	@echo "==> Semana 3: AddRoundKey..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_add_round_key_tb -o simv_add_round_key_vcs
+	./simv_add_round_key_vcs
+	@echo "==> Semana 3: InvSubBytes..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_inv_sub_bytes_tb -o simv_inv_sub_bytes_vcs
+	./simv_inv_sub_bytes_vcs
+	@echo "==> Semana 3: InvShiftRows..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_inv_shift_rows_tb -o simv_inv_shift_rows_vcs
+	./simv_inv_shift_rows_vcs
+	@echo "==> Semana 3: InvMixColumns..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_inv_mix_columns_tb -o simv_inv_mix_columns_vcs
+	./simv_inv_mix_columns_vcs
+	@echo "PASS: Semana 3 - Testes Synopsys concluidos!"
+
+# ============================================================================== 
+# SEMANA 4 - KEY EXPANSION E DATAPATH (VLOGAN + VCS)
+# ============================================================================== 
+
+# Fontes de RTL usadas pelo testbench integrado do Datapath.
+SEMANA4_RTL := $(SBOX) $(SUB) $(SHIFT) \
+    $(AES_DIR)/minisoc_aes_mix_columns.sv \
+    $(AES_DIR)/minisoc_aes_add_round_key.sv \
+    $(AES_DIR)/minisoc_aes_inv_sbox.sv \
+    $(AES_DIR)/minisoc_aes_inv_sub_bytes.sv \
+    $(AES_DIR)/minisoc_aes_inv_shift_rows.sv \
+    $(AES_DIR)/minisoc_aes_inv_mix_columns.sv \
+    $(AES_DIR)/minisoc_aes_key_exp.sv \
+    $(AES_DIR)/minisoc_aes_dp.sv
+
+SEMANA4_TB := $(TB_DIR)/minisoc_aes_key_exp_tb.sv \
+    $(TB_DIR)/minisoc_aes_dp_tb.sv
+
+.PHONY: semana4-synopsys
+semana4-synopsys:
+	@echo "==> Semana 4: verificando ferramentas e arquivos..."
+	@command -v vlogan >/dev/null 2>&1 || { echo "ERRO: vlogan nao encontrado"; exit 1; }
+	@command -v vcs >/dev/null 2>&1 || { echo "ERRO: vcs nao encontrado"; exit 1; }
+	@set -e; for file in $(SEMANA4_RTL) $(SEMANA4_TB); do \
+		test -f "$$file" || { echo "ERRO: $$file nao encontrado"; exit 1; }; \
+	done
+	@echo "==> Semana 4: analisando RTL e testbenches com Vlogan..."
+	vlogan $(VLOGAN_FLAGS) $(SEMANA4_RTL) $(SEMANA4_TB)
+	@echo "==> Semana 4: Key Expansion..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_key_exp_tb -o simv_key_exp_vcs
+	./simv_key_exp_vcs
+	@echo "==> Semana 4: Datapath AES-128..."
+	vcs $(VCS_FLAGS) -top minisoc_aes_dp_tb -o simv_dp_vcs
+	./simv_dp_vcs
+	@echo "PASS: Semana 4 - Testes Synopsys concluidos!"
