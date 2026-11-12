@@ -327,3 +327,4 @@ Essa é a primeira versão da estrutura de funcionamento das FSMs, ainda pode so
 * Sobre como o START deve se comportar quando a memória ainda não pertence ao AES, incluindo o momento em que o comando pode ser aceito e as condições necessárias para a transferência de propriedade.
 * Como funciona a política exata de limpeza do indicador ERROR, para garantir compatibilidade com o mapa de registradores e o comportamento de status exigido.
 * Validação dos sinais de confirmação dos acessos de memória e os mecanismos internos utilizados para emitir `key_start` e `aes_start` apenas uma vez.
+
