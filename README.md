@@ -40,6 +40,7 @@ O `Makefile` disponibiliza fluxos de teste para diferentes etapas do desenvolvim
 make semana1
 make semana2
 make semana3-synopsys
+make semana4-synopsys
 ```
 
 Os comandos dependem das ferramentas instaladas e disponíveis no ambiente. A execução da terceira etapa requer ferramentas Synopsys. Os testes devem ser executados para confirmar a situação atual da implementação.
