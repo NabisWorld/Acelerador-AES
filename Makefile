@@ -12,6 +12,7 @@
 #   make semana2             Semana 2 com Vlogan + VCS
 #   make semana3-synopsys    Semana 3 com Vlogan + VCS
 #   make semana4-synopsys    Semana 4 com Vlogan + VCS
+#   make semana5-synopsys    Semana 5 com Vlogan + VCS
 #   make WEEK=2 syntax       Analise com Vlogan
 #   make clean               Limpeza dos arquivos gerados
 # ==============================================================================
@@ -128,6 +129,7 @@ help:
 	@echo "  make semana2            Semana 2 - Synopsys"
 	@echo "  make semana3-synopsys   Semana 3 - Synopsys"
 	@echo "  make semana4-synopsys   Semana 4 - Synopsys"
+	@echo "  make semana5-synopsys   Semana 5 - Synopsys"
 	@echo "  make WEEK=2 syntax      Analise com Vlogan"
 	@echo "  make clean              Limpa arquivos temporarios"
 
@@ -209,3 +211,43 @@ semana4-synopsys:
 	vcs $(VCS_FLAGS) -top minisoc_aes_dp_tb -o simv_dp_vcs
 	./simv_dp_vcs
 	@echo "PASS: Semana 4 - Testes Synopsys concluidos!"
+
+# ==============================================================================
+# SEMANA 5 - SPI FRONT-END E PLL MOCK (VLOGAN + VCS)
+# ==============================================================================
+
+# Modulos RTL implementados na Semana 5.
+SEMANA5_RTL := $(RTL_DIR)/minisoc_spi/minisoc_spi.sv \
+    $(RTL_DIR)/minisoc_pll/minisoc_pll_mock.sv
+
+# Testbenches individuais e integrado.
+SEMANA5_TB := $(TB_DIR)/minisoc_spi_tb.sv \
+    $(TB_DIR)/minisoc_pll_mock_tb.sv \
+    $(TB_DIR)/minisoc_spi_pll_tb.sv
+
+.PHONY: semana5-synopsys
+
+semana5-synopsys:
+	@echo "==> Semana 5: verificando ferramentas e arquivos..."
+	@command -v vlogan >/dev/null 2>&1 || { echo "ERRO: vlogan nao encontrado"; exit 1; }
+	@command -v vcs >/dev/null 2>&1 || { echo "ERRO: vcs nao encontrado"; exit 1; }
+	@set -e; for file in $(SEMANA5_RTL) $(SEMANA5_TB); do \
+		test -f "$$file" || { echo "ERRO: $$file nao encontrado"; exit 1; }; \
+	done
+
+	@echo "==> Semana 5: compilacao e lint com Vlogan..."
+	vlogan $(VLOGAN_FLAGS) $(SEMANA5_RTL) $(SEMANA5_TB)
+
+	@echo "==> Semana 5: teste unitario do SPI Front-End..."
+	vcs $(VCS_FLAGS) -top minisoc_spi_tb -o simv_spi_vcs
+	./simv_spi_vcs
+
+	@echo "==> Semana 5: teste unitario do PLL mock..."
+	vcs $(VCS_FLAGS) -top minisoc_pll_mock_tb -o simv_pll_vcs
+	./simv_pll_vcs
+
+	@echo "==> Semana 5: teste integrado SPI + PLL..."
+	vcs $(VCS_FLAGS) -top minisoc_spi_pll_tb -o simv_spi_pll_vcs
+	./simv_spi_pll_vcs
+
+	@echo "PASS: Semana 5 - Testes Synopsys concluidos!"
