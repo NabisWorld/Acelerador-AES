@@ -194,7 +194,12 @@ module minisoc_pll_mock_tb;
         @(posedge sys_clk_o);
         rise_t = $realtime;
         #0.05 pll_enable_i = 1'b0;
-        check("LOCK cai imediatamente com enable=0", pll_locked_o === 1'b0);
+
+        // Aguarda a atualizacao da logica combinacional.
+        #0.001;
+
+        check("LOCK cai imediatamente com enable=0",
+            pll_locked_o === 1'b0);
 
         @(negedge sys_clk_o);
         fall_t = $realtime;
