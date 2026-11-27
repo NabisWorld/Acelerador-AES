@@ -264,7 +264,6 @@ module minisoc_aes_top (
     end
 
 
-endmodule
 
 
 // ============================================================
@@ -493,6 +492,25 @@ ST_PREP_AES: begin
         // Protecao contra modo interno inesperado.
         error_q     <= 1'b1;
         state_fsm_q <= ST_IDLE;
+
+    end
+
+end
+
+
+// ------------------------------------------------------------
+// ST_AES_RUN - Execucao da primitiva AES
+// ------------------------------------------------------------
+
+ST_AES_RUN: begin
+
+    if (dp_done) begin
+
+        // Captura do resultado criptografico.
+        block_out_q <= dp_result;
+
+        // Avanco para o pos-processamento.
+        state_fsm_q <= ST_POST_AES;
 
     end
 
