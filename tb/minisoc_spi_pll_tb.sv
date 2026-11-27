@@ -1,8 +1,11 @@
+
 `timescale 1ns/1ps
 
 // MiniSoC AES - Semana 5: integracao SPI Front-End + PLL Mock.
 // Testbench funcional: sem AES Engine e sem top-level definitivo.
 // SPI Mode 0, MSB-first, 40 bits, 25 MHz. Ref PLL: 2 GHz.
+// Inclui polling de SYSTEM_STATUS ate PLL_LOCKED = 1.
+
 module minisoc_spi_pll_tb;
     logic clk_i = 1'b0;
     logic rst_n_i = 1'b1;
@@ -34,6 +37,7 @@ module minisoc_spi_pll_tb;
     realtime last_sys_rise;
 
     always #0.25 clk_i = ~clk_i;
+
     always @(posedge sys_clk_o) begin
         sys_edges = sys_edges + 1;
         last_sys_rise = $realtime;
@@ -128,6 +132,27 @@ module minisoc_spi_pll_tb;
             $display("       recebido=%08h esperado=%08h", data, expected);
     endtask
 
+    // Polling de SYSTEM_STATUS via SPI.
+    // Modelo de programacao: consultar PLL_LOCKED ate adquirir lock.
+    // Limite de quatro tentativas para evitar espera infinita.
+    task automatic poll_pll_locked(input string name);
+        logic [31:0] status;
+
+        status = '0;
+
+        for (int attempt = 0; attempt < 4; attempt++) begin
+            spi_read(ADDR_SYSTEM_STATUS, status);
+
+            if (status[0] === 1'b1)
+                break;
+        end
+
+        check(name, status === 32'h0000_0001);
+
+        if (status[0] !== 1'b1)
+            $fatal(1, "Timeout: PLL nao adquiriu lock via SPI");
+    endtask
+
     task automatic check_stopped(input string name);
         int previous;
         // Permite encerrar eventual ultimo pulso na fase alta.
@@ -144,18 +169,21 @@ module minisoc_spi_pll_tb;
         logic good;
         good = 1'b1;
         @(posedge sys_clk_o) t0 = $realtime;
+
         for (int n = 0; n < 5; n++) begin
             @(negedge sys_clk_o) tfall = $realtime;
             @(posedge sys_clk_o) t1 = $realtime;
             t_period = t1-t0;
             t_high = tfall-t0;
             t_low = t1-tfall;
+
             if (t_period < expected_ns-TOL_NS ||
                 t_period > expected_ns+TOL_NS ||
                 t_high < expected_ns/2.0-TOL_NS ||
                 t_high > expected_ns/2.0+TOL_NS ||
                 t_low < expected_ns/2.0-TOL_NS ||
                 t_low > expected_ns/2.0+TOL_NS) begin
+
                 good = 1'b0;
                 $display("[DETALHE] %s: periodo=%0.3f alto=%0.3f baixo=%0.3f ns",
                          name, t_period, t_high, t_low);
@@ -177,83 +205,123 @@ module minisoc_spi_pll_tb;
         #3.1 rst_n_i = 1'b1;
         #2;
 
+        // TESTE 01 - Reset e status inicial.
         $display("\n[TESTE 01] Reset e status inicial via SPI");
+
         check_stopped("PLL desabilitado apos reset");
+
         expect_register(ADDR_SYSTEM_CONTROL, 32'd0,
                         "SYSTEM_CONTROL = 0 apos reset");
+
         expect_register(ADDR_SYSTEM_STATUS, 32'd0,
                         "SYSTEM_STATUS.LOCKED = 0 apos reset");
 
-        // Percorre todos os divisores, sempre configurando via SPI.
+        // TESTES 02 A 05 - Quatro divisores configurados via SPI.
         for (int d = 0; d < 4; d++) begin
             $display("\n[TESTE %02d] PLL /%0d configurado via SPI", d+2, 1 << d);
+
             ctrl = (32'(d) << 2) | 32'h2; // PLL_ENABLE=1, MEM_SEL_AES=0.
+
             spi_write(ADDR_SYSTEM_CONTROL, ctrl);
+
             check("Enable e divisor chegaram ao PLL",
                   pll_enable_o === 1'b1 && pll_div_sel_o === 2'(d));
+
             expect_register(ADDR_SYSTEM_CONTROL, ctrl,
                             "SYSTEM_CONTROL reflete configuracao escrita");
-            // A aquisicao dura ~4-12 ns e uma leitura SPI leva ~3,2 us.
-            // Portanto esta consulta verifica LOCKED estavel, nao o instante
-            // de sua subida. Esse instante foi coberto no TB individual.
-            expect_register(ADDR_SYSTEM_STATUS, 32'h1,
-                            "SYSTEM_STATUS indica lock pelo SPI");
+
+            // Passo 9 do modelo de programacao:
+            // consultar SYSTEM_STATUS ate PLL_LOCKED = 1.
+            // Como a aquisicao e mais rapida que o SPI, normalmente
+            // o lock ja estara ativo na primeira consulta.
+            poll_pll_locked("SYSTEM_STATUS indica lock pelo SPI");
+
             check("PLL locked e clock habilitado",
                   pll_locked_o === 1'b1 && sys_clk_o !== 1'bx);
+
             measure_period(0.5 * (1 << d),
                            $sformatf("Periodo e duty cycle de sys_clk /%0d", 1 << d));
 
             spi_write(ADDR_SYSTEM_CONTROL, 32'd0);
+
             check_stopped("sys_clk bloqueado apos disable pelo SPI");
+
             expect_register(ADDR_SYSTEM_STATUS, 32'd0,
                             "SYSTEM_STATUS indica unlock pelo SPI");
         end
 
+        // TESTE 06 - Mudanca de divisor com PLL habilitado.
         $display("\n[TESTE 06] Mudanca de divisor sem desabilitar PLL");
+
         spi_write(ADDR_SYSTEM_CONTROL, 32'h6); // /2, enable=1.
-        expect_register(ADDR_SYSTEM_STATUS, 32'h1, "Lock /2 ativo");
+
+        poll_pll_locked("Lock /2 ativo");
+
         measure_period(1.0, "Clock inicialmente /2");
+
         spi_write(ADDR_SYSTEM_CONTROL, 32'hE); // Solicita /8, enable=1.
+
         check("Registro recebe a nova selecao /8", pll_div_sel_o === 2'b11);
+
         measure_period(1.0, "Clock permanece /2 ate desabilitacao");
+
         spi_write(ADDR_SYSTEM_CONTROL, 32'd0);
+
         check_stopped("PLL desligado antes de adotar /8");
+
         spi_write(ADDR_SYSTEM_CONTROL, 32'hE);
-        expect_register(ADDR_SYSTEM_STATUS, 32'h1, "Lock readquirido em /8");
+
+        poll_pll_locked("Lock readquirido em /8");
+
         measure_period(4.0, "Clock passa a /8 apos nova habilitacao");
 
+        // TESTE 07 - Reset global e recuperacao.
         $display("\n[TESTE 07] Reset global com PLL habilitado");
+
         rst_n_i = 1'b0;
         #0.001;
+
         check("Reset bloqueia clock e lock",
               sys_clk_o === 1'b0 && pll_locked_o === 1'b0);
+
         #3 rst_n_i = 1'b1;
+
         check_stopped("Clock permanece bloqueado apos reset");
+
         expect_register(ADDR_SYSTEM_CONTROL, 32'd0,
                         "Controle retorna ao reset");
+
         expect_register(ADDR_SYSTEM_STATUS, 32'd0,
                         "Status retorna ao reset");
+
         spi_write(ADDR_SYSTEM_CONTROL, 32'h2);
-        expect_register(ADDR_SYSTEM_STATUS, 32'h1,
-                        "SPI reabilita PLL apos reset");
+
+        poll_pll_locked("SPI reabilita PLL apos reset");
+
         measure_period(0.5, "Clock /1 recuperado apos reset");
+
         spi_write(ADDR_SYSTEM_CONTROL, 32'd0);
+
         check_stopped("Desligamento final");
 
+        // Relatorio consolidado.
         $display("\n============================================================");
         $display(" Resultado do Testbench Integrado SPI + PLL");
         $display("============================================================");
         $display("Verificacoes : %0d", checks);
         $display("Falhas       : %0d", failures);
+
         if (failures != 0)
             $fatal(1, "FAIL: %0d verificacoes falharam", failures);
         else
             $display("PASS: minisoc_spi_pll_tb - todas as verificacoes passaram");
+
         $finish;
     end
 
+    // Timeout global considerando eventuais consultas adicionais.
     initial begin
-        #100000;
-        $fatal(1, "FAIL: timeout global no testbench integrado");
+        #250000 $fatal(1, "FAIL: timeout global no testbench integrado");
     end
+
 endmodule
